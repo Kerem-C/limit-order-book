@@ -1,0 +1,26 @@
+# Build directories and CMake files
+build/
+out/
+.cmake/
+CMakeCache.txt
+CMakeFiles/
+Makefile
+*.ninja
+*.cmake
+
+# IDE Specific files
+.vscode/
+.idea/
+*.sln
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+
+# Compiled Binaries and Debug symbols
+*.exe
+*.dll
+*.lib
+*.pdb
+*.obj
+*.o
+*.ilk
