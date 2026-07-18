@@ -1,11 +1,12 @@
 #pragma once
 
 #include <cstdint>
+#include <cstddef>
 #include <unordered_map>
 #include <vector>
+#include <stdexcept>
 
-// 1. The Atomic Unit: A single limit order
-// Implemented as a Doubly-Linked List to enable O(1) memory severing
+// The Atomic Unit
 struct Order {
     uint64_t order_id;
     uint32_t price_tick; // Price normalized to an integer index (e.g., $100.00 --> 10000)
@@ -15,12 +16,52 @@ struct Order {
     Order* prev;
     Order* next;
 
-    Order(uint64_t id, uint32_t p, uint32_t q, bool buy)
-        : order_id(id), price_tick(p), quantity(q), is_buy(buy), prev(nullptr), next(nullptr) {}
+    Order() : order_id(0), price_tick(0), quantity(0), is_buy(false), prev(nullptr), next(nullptr) {}
 };
 
-// 2. The Queue: All the orders sitting at a specific price tick
-// Maintains FIFO Priority
+// Custom Memory Allocator
+class OrderPool {
+private:
+    std::vector<Order> pool;
+    std::vector<Order*> free_list;
+
+public:
+    // Allocate entire memory block ONCE at startup
+    OrderPool(size_t max_active_orders) {
+        pool.resize(max_active_orders);
+        free_list.reserve(max_active_orders);
+
+        // Push the addresses of all pre-allocated orders into the free list stack
+        for (size_t i = 0; i < max_active_orders; ++i) {
+            free_list.push_back(&pool[i]);
+        }
+    }
+
+    // O(1) Allocation: Pop a pre-existing memory address off the stack
+    inline Order* allocate(uint64_t id, uint32_t p, uint32_t q, bool buy) {
+        if (free_list.empty()) {
+            throw std::runtime_error("OrderPool exhausted: Max capacity reached.");
+        }
+        Order* order = free_list.back();
+        free_list.pop_back();
+
+        order->order_id = id;
+        order->price_tick = p;
+        order->quantity = q;
+        order->is_buy = buy;
+        order->prev = nullptr;
+        order->next = nullptr;
+
+        return order;
+    }
+
+    // O(1) Deallocation: Push the memory address back onto the stack
+    inline void deallocate(Order* order) {
+        free_list.push_back(order);
+    }
+};
+
+// The Queue
 struct PriceLevel {
     Order* head;
     Order* tail;
@@ -29,7 +70,7 @@ struct PriceLevel {
     PriceLevel() : head(nullptr), tail(nullptr), total_volume(0) {}
 };
 
-// 3. The Engine: The Limit Order Book Memory Layout
+// The Engine
 class LimitOrderBook {
 private:
     // O(1) Price-Indexed Array
@@ -40,12 +81,15 @@ private:
     // Maps unique order_id to memory address in the system
     std::unordered_map<uint64_t, Order*> order_map;
 
+    OrderPool memory_pool;
+
     uint32_t best_bid_tick;
     uint32_t best_ask_tick;
 
 public:
     // Allocate entire array upfront to prevent runtime memory reallocation
-    LimitOrderBook(uint32_t max_price_ticks) {
+    LimitOrderBook(uint32_t max_price_ticks, size_t max_active_orders)
+        : memory_pool(max_active_orders) {
         price_levels.resize(max_price_ticks);
         best_bid_tick = 0;
         best_ask_tick = max_price_ticks;

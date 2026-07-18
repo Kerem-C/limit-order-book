@@ -4,11 +4,11 @@
 
 int main() {
     // Initialize the engine with a max price of $1,000.00 (100,000 ticks of $0.01)
-    LimitOrderBook engine(100000);
+    LimitOrderBook engine(100000, 100000);
 
     std::cout << "--- Exchange Booted ---" << std::endl;
 
-    // 1. Build the Order Book (Injecting Limit Orders)
+    // Build the Order Book (Injecting Limit Orders)
     // format: order_id, price_tick, quantity, is_buy
     engine.add_order(1, 15000, 100, false); // Sell 100 @ $150.00
     engine.add_order(2, 15005, 200, false); // Sell 200 @ $150.05

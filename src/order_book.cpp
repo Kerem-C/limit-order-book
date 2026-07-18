@@ -2,7 +2,7 @@
 
 void LimitOrderBook::add_order(uint64_t order_id, uint32_t price_tick, uint32_t quantity, bool is_buy) {
     
-    Order* new_order = new Order(order_id, price_tick, quantity, is_buy);
+    Order* new_order = memory_pool.allocate(order_id, price_tick, quantity, is_buy);
 
     // Map the raw pointer for O(1) cancellation lookups
     order_map[order_id] = new_order;
@@ -74,8 +74,8 @@ void LimitOrderBook::cancel_order(uint64_t order_id) {
         }
     }
 
-    // Free the heap memory
-    delete target;
+    // Return memory to the pool
+    memory_pool.deallocate(target);
 }
 
 void LimitOrderBook::execute_market_order(uint32_t quantity, bool is_buy) {
@@ -110,7 +110,7 @@ void LimitOrderBook::execute_market_order(uint32_t quantity, bool is_buy) {
             
             // Direct erasure avoids triggering the O(1) hash map lookup overhead of cancel_order()
             order_map.erase(resting_order->order_id);
-            delete resting_order;
+            memory_pool.deallocate(resting_order);
 
         } else {
             // Mutate the resting order in-place to preserve its queue time priority
