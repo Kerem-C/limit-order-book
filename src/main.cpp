@@ -18,11 +18,11 @@ int main() {
     std::cout << "Liquidity injected. Best Ask: " << engine.get_best_ask() 
               << " | Best Bid: " << engine.get_best_bid() << std::endl;
 
-    // 2. Execute a Cancellation
+    // Execute a Cancellation
     engine.cancel_order(2); // Instantly cancel the $150.05 sell order
     std::cout << "Order #2 Canceled." << std::endl;
 
-    // 3. Execute a Market Order
+    // Execute a Market Order
     // A trader wants to buy 150 shares immediately.
     // This should consume all 100 shares at $150.00, and then step up to the next available ask.
     std::cout << "Executing Market Buy for 150 shares..." << std::endl;
