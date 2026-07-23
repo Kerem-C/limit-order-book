@@ -67,13 +67,13 @@ void LimitOrderBook::cancel_order(uint64_t order_id) {
             bid_bitfield.clear_tick(max_price - target->price_tick);
             if (target-> price_tick == best_bid_tick) {
                 int64_t next_bid = bid_bitfield.get_next_active_tick(max_price - best_bid_tick);
-                best_bid_tick = (next_bid == -1) ? 0 : (max_price - next_bid);
+                best_bid_tick = (next_bid == -1) ? 0 : static_cast<uint32_t>(max_price - next_bid);
             }
         } else {
             ask_bitfield.clear_tick(target->price_tick);
             if (target->price_tick == best_ask_tick) {
                 int64_t next_ask = ask_bitfield.get_next_active_tick(best_ask_tick);
-                best_ask_tick = (next_ask == -1) ? price_levels.size() : next_ask;
+                best_ask_tick = (next_ask == -1) ? max_price : static_cast<uint32_t>(next_ask);
             }
         }
     }
@@ -127,11 +127,11 @@ void LimitOrderBook::execute_market_order(uint32_t quantity, bool is_buy) {
             if (is_buy) {
                 ask_bitfield.clear_tick(current_best_tick);
                 int64_t next_ask = ask_bitfield.get_next_active_tick(current_best_tick);
-                best_ask_tick = (next_ask == -1) ?  price_levels.size() : next_ask;
+                best_ask_tick = (next_ask == -1) ?  max_price : static_cast<uint32_t>(next_ask);
             } else {
                 bid_bitfield.clear_tick(max_price - current_best_tick);
                 int64_t next_bid = bid_bitfield.get_next_active_tick(max_price - current_best_tick);
-                best_bid_tick = (next_bid == -1) ? 0 : (max_price - next_bid);
+                best_bid_tick = (next_bid == -1) ? 0 : static_cast<uint32_t>(max_price - next_bid);
             }
         }
     }
