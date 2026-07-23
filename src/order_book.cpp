@@ -61,20 +61,23 @@ void LimitOrderBook::cancel_order(uint64_t order_id) {
     level.total_volume -= target->quantity;
     order_map.erase(it);
 
-    // The Worst-Case Scenario: Spread Empties
+    // O(1) Spread Recalculation using Bitboards
     if (level.head == nullptr) {
-        if (target->is_buy && target->price_tick == best_bid_tick) {
-            while (best_bid_tick > 0 && price_levels[best_bid_tick].head == nullptr) {
-                best_bid_tick--;
+        if (target->is_buy) {
+            bid_bitfield.clear_tick(max_price - target->price_tick);
+            if (target-> price_tick == best_bid_tick) {
+                int64_t next_bid = bid_bitfield.get_next_active_tick(max_price - best_bid_tick);
+                best_bid_tick = (next_bid == -1) ? 0 : (max_price - next_bid);
             }
-        } else if (!target->is_buy && target->price_tick == best_ask_tick) {
-            while (best_ask_tick < price_levels.size() && price_levels[best_ask_tick].head == nullptr) {
-                best_ask_tick++;
+        } else {
+            ask_bitfield.clear_tick(target->price_tick);
+            if (target->price_tick == best_ask_tick) {
+                int64_t next_ask = ask_bitfield.get_next_active_tick(best_ask_tick);
+                best_ask_tick = (next_ask == -1) ? price_levels.size() : next_ask;
             }
         }
     }
 
-    // Return memory to the pool
     memory_pool.deallocate(target);
 }
 
@@ -119,16 +122,16 @@ void LimitOrderBook::execute_market_order(uint32_t quantity, bool is_buy) {
             remaining_qty = 0;
         }
 
-        // Cache-friendly linear scan to find the new inside market after a level fully clears
+        // Hardware-Accelerated O(1) Scan to find the new inside market
         if (level.head == nullptr) {
             if (is_buy) {
-                while (best_ask_tick < price_levels.size() && price_levels[best_ask_tick].head == nullptr) {
-                    best_ask_tick++;
-                } 
+                ask_bitfield.clear_tick(current_best_tick);
+                int64_t next_ask = ask_bitfield.get_next_active_tick(current_best_tick);
+                best_ask_tick = (next_ask == -1) ?  price_levels.size() : next_ask;
             } else {
-                while (best_bid_tick > 0 && price_levels[best_bid_tick].head == nullptr) {
-                    best_bid_tick--;
-                }
+                bid_bitfield.clear_tick(max_price - current_best_tick);
+                int64_t next_bid = bid_bitfield.get_next_active_tick(max_price - current_best_tick);
+                best_bid_tick = (next_bid == -1) ? 0 : (max_price - next_bid);
             }
         }
     }

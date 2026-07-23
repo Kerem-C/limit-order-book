@@ -5,6 +5,7 @@
 #include <unordered_map>
 #include <vector>
 #include <stdexcept>
+#include "bitfield_index.h"
 
 // The Atomic Unit
 struct Order {
@@ -80,8 +81,11 @@ private:
     // O(1) Cancellation Map
     // Maps unique order_id to memory address in the system
     std::unordered_map<uint64_t, Order*> order_map;
-
     OrderPool memory_pool;
+
+    BitfieldIndex bid_bitfield;
+    BitfieldIndex ask_bitfield;
+    uint32_t max_price;
 
     uint32_t best_bid_tick;
     uint32_t best_ask_tick;
@@ -89,7 +93,10 @@ private:
 public:
     // Allocate entire array upfront to prevent runtime memory reallocation
     LimitOrderBook(uint32_t max_price_ticks, size_t max_active_orders)
-        : memory_pool(max_active_orders) {
+        : memory_pool(max_active_orders),
+          bid_bitfield(max_price_ticks + 1),
+          ask_bitfield(max_price_ticks + 1),
+          max_price(max_price_ticks) {
         price_levels.resize(max_price_ticks);
         best_bid_tick = 0;
         best_ask_tick = max_price_ticks;
