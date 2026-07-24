@@ -2,7 +2,6 @@
 
 #include <cstdint>
 #include <cstddef>
-#include <unordered_map>
 #include <vector>
 #include <stdexcept>
 #include "bitfield_index.h"
@@ -39,7 +38,7 @@ public:
     }
 
     // O(1) Allocation: Pop a pre-existing memory address off the stack
-    inline Order* allocate(uint64_t id, uint32_t p, uint32_t q, bool buy) {
+    [[nodiscard]] inline Order* allocate(uint64_t id, uint32_t p, uint32_t q, bool buy) {
         if (free_list.empty()) {
             throw std::runtime_error("OrderPool exhausted: Max capacity reached.");
         }
@@ -79,13 +78,14 @@ private:
     std::vector<PriceLevel> price_levels;
 
     // O(1) Cancellation Map
-    // Maps unique order_id to memory address in the system
-    std::unordered_map<uint64_t, Order*> order_map;
+    std::vector<Order*> order_map;
+
     OrderPool memory_pool;
 
     BitfieldIndex bid_bitfield;
     BitfieldIndex ask_bitfield;
     uint32_t max_price;
+    size_t max_orders;
 
     uint32_t best_bid_tick;
     uint32_t best_ask_tick;
@@ -96,16 +96,20 @@ public:
         : memory_pool(max_active_orders),
           bid_bitfield(max_price_ticks + 1),
           ask_bitfield(max_price_ticks + 1),
-          max_price(max_price_ticks) {
+          max_price(max_price_ticks),
+          max_orders(max_active_orders) {
+
         price_levels.resize(max_price_ticks);
+        order_map.resize(max_active_orders, nullptr);
+
         best_bid_tick = 0;
         best_ask_tick = max_price_ticks;
     }
 
-    inline uint32_t get_best_bid() const { return best_bid_tick; }
-    inline uint32_t get_best_ask() const { return best_ask_tick; }
+    [[nodiscard]] inline uint32_t get_best_bid() const { return best_bid_tick; }
+    [[nodiscard]] inline uint32_t get_best_ask() const { return best_ask_tick; }
 
-    void add_order(uint64_t order_id, uint32_t price_tick, uint32_t quantity, bool is_buy);
-    void cancel_order(uint64_t order_id);
-    void execute_market_order(uint32_t quantity, bool is_buy);
+    void add_order(uint64_t order_id, uint32_t price_tick, uint32_t quantity, bool is_buy) noexcept;
+    void cancel_order(uint64_t order_id) noexcept;
+    void execute_market_order(uint32_t quantity, bool is_buy) noexcept;
 };

@@ -1,13 +1,12 @@
 #include "../include/order_book.h"
 
-void LimitOrderBook::add_order(uint64_t order_id, uint32_t price_tick, uint32_t quantity, bool is_buy) {
-    
+void LimitOrderBook::add_order(uint64_t order_id, uint32_t price_tick, uint32_t quantity, bool is_buy) noexcept {
+    if (price_tick >= max_price) [[unlikely]] return; 
+    if (order_id >= max_orders) [[unlikely]] return;
+
     Order* new_order = memory_pool.allocate(order_id, price_tick, quantity, is_buy);
 
-    // Map the raw pointer for O(1) cancellation lookups
     order_map[order_id] = new_order;
-
-    // Direct array access for O(1) queue retrieval
     PriceLevel& level = price_levels[price_tick];
 
     // Maintain FIFO execution priority at the tail of the linked list
@@ -34,13 +33,12 @@ void LimitOrderBook::add_order(uint64_t order_id, uint32_t price_tick, uint32_t 
     }
 }
 
-void LimitOrderBook::cancel_order(uint64_t order_id) {
+void LimitOrderBook::cancel_order(uint64_t order_id) noexcept {
+    if (order_id >= max_orders) [[unlikely]] return;
 
-    // O(1) hash map lookup to find raw memory address
-    auto it = order_map.find(order_id);
-    if (it == order_map.end()) return;
+    Order* target = order_map[order_id];
+    if (target == nullptr) [[unlikely]] return;
 
-    Order* target = it->second;
     PriceLevel& level = price_levels[target->price_tick];
 
     // Sever the O(1) Doubly-Linked List connections
@@ -59,7 +57,7 @@ void LimitOrderBook::cancel_order(uint64_t order_id) {
     }
 
     level.total_volume -= target->quantity;
-    order_map.erase(it);
+    order_map[order_id] = nullptr;
 
     // O(1) Spread Recalculation using Bitboards
     if (level.head == nullptr) {
@@ -81,7 +79,7 @@ void LimitOrderBook::cancel_order(uint64_t order_id) {
     memory_pool.deallocate(target);
 }
 
-void LimitOrderBook::execute_market_order(uint32_t quantity, bool is_buy) {
+void LimitOrderBook::execute_market_order(uint32_t quantity, bool is_buy) noexcept {
     uint32_t remaining_qty = quantity;
 
     while (remaining_qty > 0) {
@@ -112,7 +110,7 @@ void LimitOrderBook::execute_market_order(uint32_t quantity, bool is_buy) {
             }
             
             // Direct erasure avoids triggering the O(1) hash map lookup overhead of cancel_order()
-            order_map.erase(resting_order->order_id);
+            order_map[resting_order->order_id] = nullptr;
             memory_pool.deallocate(resting_order);
 
         } else {

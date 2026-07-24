@@ -40,7 +40,6 @@ gtest_discover_tests(bitfield_tests)
 # ======================
 # Benchmarking (Google Benchmark)
 # ======================
-include(FetchContent)
 FetchContent_Declare(
   benchmark
   GIT_REPOSITORY https://github.com/google/benchmark.git
@@ -53,3 +52,21 @@ FetchContent_MakeAvailable(benchmark)
 add_executable(bench_order_book benchmarks/benchmark_order_book.cpp)
 target_sources(bench_order_book PRIVATE src/order_book.cpp)
 target_link_libraries(bench_order_book PRIVATE benchmark::benchmark benchmark::benchmark_main)
+
+# ======================
+# Networking (Standalone ASIO)
+# ======================
+FetchContent_Declare(
+    asio
+    GIT_REPOSITORY https://github.com/chriskohlhoff/asio.git
+    GIT_TAG        asio-1-30-2 
+)
+FetchContent_MakeAvailable(asio)
+
+add_executable(lob_server src/server_main.cpp src/order_book.cpp)
+target_include_directories(lob_server PRIVATE ${asio_SOURCE_DIR}/asio/include)
+target_compile_definitions(lob_server PRIVATE ASIO_STANDALONE)
+
+if(WIN32)
+    target_link_libraries(lob_server PRIVATE wsock32 ws2_32)
+endif()
